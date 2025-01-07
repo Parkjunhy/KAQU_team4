@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'CmdManager_Node = kaqu_controller.CmdManagerNode:main' ,
         ],
     },
 )
