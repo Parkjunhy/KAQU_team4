@@ -1,88 +1,74 @@
+### CmdManager에서는 조이스틱에서 조이토픽으로 보내는 값을 구독함. 그리고 그 값이 각각 어떤 state를 의미하는지 정의함.
+### 정의된 state는 robotcontroller에서 어떤 gait을 사용하라 할건지 명령할 예정.
+### 또한, IK를 거친 각도값에 대한 publish도 여기서 할 예정.
+### imu에 관한 것들은 Gazebosim에서 할지 여기서 받을지 좀더 고민해야함.
+
+
+
+
 import rclpy
 from rclpy.node import Node
-import threading
-from kaqu_msgs.msg import Joy_msg 
-from geometry_msgs.msg import Twist, Pose
-from std_msgs.msg import String
-import time
+from kaqu_msgs.msg import JoyMsgs
 
-
-class KaquCmdManager:
-    def __init__(self, set_msgs, send_msgs, node_name='CmdManager_Node'):
-        # ROS parameters
-        self.node = None
-        self.node_name = node_name
-
-        # Joy 상태를 저장할 변수 초기화
-        self.CurrentState = {
+# 어떤 커맨드일지 총괄 관리하는 클래스임
+class Command:
+    def __init__(self):
+        # Joy initialize(기본값 rest로)
+        self.current_state = {
             "start": False,
             "trot": False,
-            "rest": True,  # 기본값으로 'rest' 상태 설정
+            "rest": True,  
         }
 
-        # ----- 조이스틱 값 구독 --------
-        self.sub1 = None
+    # 이 method에서 state값을 update함.
+    def update_state(self, states):
+        if not any(states):  # 기본 상태 로직
+            self.current_state["start"] = False
+            self.current_state["trot"] = False
+            self.current_state["rest"] = True
+        else:
+            self.current_state["start"] = states[0]
+            self.current_state["trot"] = states[1]
+            self.current_state["rest"] = states[2]
+
+    def get_state(self):
+        # 나중에 robotctrler 에서 Command.get_state() ~~하는 방식으로 가져오면 신속한처리가능, if문 달듯
+        return self.current_state
+
+# 여기에 각 관절의 값 전체 퍼블리쉬하는거 추가할 예정
+class KaquCmdManager(Node):
+    def __init__(self):
+        super().__init__('cmd_manager_node')
+
+        # Command 객체 생성
+        self.command = Command()
+
+        # 조이스틱에서는 Joy_topic으로 값 준다고 가정함. 이름은 변경 가능
         self.sub1_name = 'Joy_topic'
-        self.sub1_interface = Joy_msg  # 조이스틱 데이터타입
-        self.sub1_callback = self._joy_cmd_callback
-        self.sub1_queueSize = 30
-
-        # -----------gait 값
-
-        self.stop = True
-
-        # Robot cmds
-        self.cmd = set_msgs
-        self.pub_msgs = send_msgs
-
-    def _createNode(self):
-        rclpy.init(args=None)
-        self.node = rclpy.create_node(self.node_name)
-
-    def create_sub1(self):
-        self.sub1 = self.node.create_subscription(
-            self.sub1_interface,
-            self.sub1_name,
-            self.sub1_callback,
-            self.sub1_queueSize,
+        self.sub1 = self.create_subscription(
+            JoyMsgs, self.sub1_name, self._joy_cmd_callback, 10
         )
 
+        self.get_logger().info("KaquCmdManager Node initialized!")
+
     def _joy_cmd_callback(self, msg):
-        if not any(msg.states):  # default logic
-            self.CurrentState["start"] = False
-            self.CurrentState["trot"] = False
-            self.CurrentState["rest"] = True
-        else:
-            # states 값 업데이트
-            self.CurrentState["start"] = msg.states[0]
-            self.CurrentState["trot"] = msg.states[1]
-            self.CurrentState["rest"] = msg.states[2]
+        # command클래스의 값을 업데이트 해주는 방식
+        self.command.update_state(msg.states)
 
-# 이렇게 받아오고 robotcontroller에서 currentstate임포트해서 값이 start면 시작하게
-# trot이면 trotgaitcontrler 발동! 할예정
-
-        # 디버깅 출력
-        self.node.get_logger().info(f"Updated CurrentState: {self.CurrentState}")
-
-    def start(self):
-        self._createNode()
-        self.create_sub1()
-        rclpy.spin(self.node)
-        self.node.destroy_node()
-        rclpy.shutdown()
-        self.stop = False
+        self.get_logger().info(f"Updated CurrentState: {self.command.get_state()}")
 
 
-# 실행 예시
-if __name__ == "__main__":
-    set_msgs = None  # 실제 값으로 초기화
-    send_msgs = None  # 실제 값으로 초기화
-    cmd_manager = KaquCmdManager(set_msgs, send_msgs)
-    thread1 = threading.Thread(target=cmd_manager.start)
-    thread1.start()
+# def main(args=None):
+#     rclpy.init(args=args)
+#     node = KaquCmdManager()
+#     try:
+#         rclpy.spin(node)
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
 
-    try:
-        while thread1.is_alive():
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        cmd_manager.stop()
+
+# if __name__ == "__main__":
+#     main()
