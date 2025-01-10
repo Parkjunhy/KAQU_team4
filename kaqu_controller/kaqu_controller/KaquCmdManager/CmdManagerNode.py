@@ -4,14 +4,12 @@
 ### imu에 관한 것들은 Gazebosim에서 할지 여기서 받을지 좀더 고민해야함.
 
 
-
-
 import rclpy
 from rclpy.node import Node
 from kaqu_msgs.msg import JoyMsgs
 
 # 어떤 커맨드일지 총괄 관리하는 클래스임
-class Command:
+class Command(object):
     def __init__(self):
         # Joy initialize(기본값 rest로)
         self.current_state = {
@@ -50,6 +48,8 @@ class KaquCmdManager(Node):
         )
 
         self.get_logger().info("KaquCmdManager Node initialized!")
+
+
 
     def _joy_cmd_callback(self, msg):
         # command클래스의 값을 업데이트 해주는 방식
