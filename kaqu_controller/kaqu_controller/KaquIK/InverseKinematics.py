@@ -102,3 +102,5 @@ class InverseKinematics(object):
                               -RR
                               -RL
            이렇게 4바이3 행렬이 결과로 나온다!!
+
+# 확인했습니다. 훌륭합니다~ 짝짝
