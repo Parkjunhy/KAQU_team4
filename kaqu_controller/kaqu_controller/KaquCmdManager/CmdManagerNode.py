@@ -7,6 +7,7 @@ import rclpy
 from rclpy.node import Node
 from kaqu_msgs.msg import JoyMsgs  
 from enum import Enum
+import numpy as np
 
 
 class BehaviorState(Enum):
@@ -14,19 +15,32 @@ class BehaviorState(Enum):
     TROT = 1
     REST = 2
 
-class RobotState:
-    def __init__(self):
-        self.behavior_state = BehaviorState.REST  # 기본 상태
+class RobotState(object):
+    def __init__(self, default_height):
         self.velocity = [0.0, 0.0]  # 속도 (x, y)
         self.yaw_rate = 0.0  # Yaw 회전 속도
-        self.robot_height = -0.15  # 로봇 기본 높이, 바뀔예정
+        self.robot_height = -default_height  # 로봇 기본 높이, 바뀔예정(params에서 가져올듯)
         self.imu_roll = 0.0  # IMU Roll
         self.imu_pitch = 0.0  # IMU Pitch
 
+        self.foot_location = np.zeros((3,4))
+        self.body_local_position = np.array([0., 0., 0.])
+        self.body_local_orientation = np.array([0., 0., 0.])
+
+        self.ticks = 0
+
+        self.behavior_state = BehaviorState.REST  # 기본 상태
+
         # 각 상태 플래그
+class RobotCommand(object):
+    def __init__(self, default_height):
         self.trot_event = False
         self.rest_event = False
         self.start_event = False
+        
+        self.velocity = [0.0, 0.0]  # 속도 (x, y)
+        self.yaw_rate = 0.0  # Yaw 회전 속도
+        self.robot_height = -default_height  # 로봇 기본 높이, 바뀔예정(params에서 가져올듯)
 
 
 class StateSubscriber(Node):
@@ -58,7 +72,7 @@ class StateSubscriber(Node):
             self.state.start_event = False
             self.state.trot_event = False
             self.state.rest_event = True
-
+            
        # 상태값 출력, imu나 회전 쪽도 출력할 수도 있음
         self.get_logger().info(f'Current State: {self.state.behavior_state.name}')
 
