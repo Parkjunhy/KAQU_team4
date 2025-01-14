@@ -1,61 +1,96 @@
 ### CmdManager에서는 조이스틱에서 조이토픽으로 보내는 값을 구독함. 그리고 그 값이 각각 어떤 state를 의미하는지 정의함.
 ### 정의된 state는 robotcontroller에서 어떤 gait을 사용하라 할건지 명령할 예정.
-### 또한, IK를 거친 각도값에 대한 publish도 여기서 할 예정.
 ### imu에 관한 것들은 Gazebosim에서 할지 여기서 받을지 좀더 고민해야함.
 
 
 import rclpy
 from rclpy.node import Node
-from kaqu_msgs.msg import JoyMsgs
+from kaqu_msgs.msg import JoyMsgs  
+from enum import Enum
+import numpy as np
 
-# 어떤 커맨드일지 총괄 관리하는 클래스임
-class Command(object):
+
+class BehaviorState(Enum):
+    START = 0
+    TROT = 1
+    REST = 2
+
+class RobotState(object):
+    def __init__(self, default_height):
+        self.velocity = [0.0, 0.0]  # 속도 (x, y)
+        self.yaw_rate = 0.0  # Yaw 회전 속도
+        self.robot_height = -default_height  # 로봇 기본 높이, 바뀔예정(params에서 가져올듯)
+        self.imu_roll = 0.0  # IMU Roll
+        self.imu_pitch = 0.0  # IMU Pitch
+
+        self.foot_location = np.zeros((3,4))
+        self.body_local_position = np.array([0., 0., 0.])
+        self.body_local_orientation = np.array([0., 0., 0.])
+
+        self.ticks = 0
+
+        self.behavior_state = BehaviorState.REST  # 기본 상태
+
+        # 각 상태 플래그
+class RobotCommand(object):
+    def __init__(self, default_height):
+        self.trot_event = False
+        self.rest_event = False
+        self.start_event = False
+        
+        self.velocity = [0.0, 0.0]  # 속도 (x, y)
+        self.yaw_rate = 0.0  # Yaw 회전 속도
+        self.robot_height = -default_height  # 로봇 기본 높이, 바뀔예정(params에서 가져올듯)
+
+
+class StateSubscriber(Node):
     def __init__(self):
-        # Joy initialize(기본값 rest로)
-        self.current_state = {
-            "start": False,
-            "trot": False,
-            "rest": True,  
-        }
-
-    # 이 method에서 state값을 update함.
-    def update_state(self, states):
-        if not any(states):  # 기본 상태 로직
-            self.current_state["start"] = False
-            self.current_state["trot"] = False
-            self.current_state["rest"] = True
-        else:
-            self.current_state["start"] = states[0]
-            self.current_state["trot"] = states[1]
-            self.current_state["rest"] = states[2]
-
-    def get_state(self):
-        # 나중에 robotctrler 에서 Command.get_state() ~~하는 방식으로 가져오면 신속한처리가능, if문 달듯
-        return self.current_state
-
-# 여기에 각 관절의 값 전체 퍼블리쉬하는거 추가할 예정
-class KaquCmdManager(Node):
-    def __init__(self):
-        super().__init__('cmd_manager_node')
-
-        # Command 객체 생성
-        self.command = Command()
-
-        # 조이스틱에서는 Joy_topic으로 값 준다고 가정함. 이름은 변경 가능
-        self.sub1_name = 'Joy_topic'
-        self.sub1 = self.create_subscription(
-            JoyMsgs, self.sub1_name, self._joy_cmd_callback, 10
+        super().__init__('state_subscriber')
+        self.state = RobotState()
+        self.subscription = self.create_subscription(
+            JoyMsgs,
+            'Joy_topic',
+            self.joystick_callback,
+            10
         )
 
-        self.get_logger().info("KaquCmdManager Node initialized!")
+    def joystick_callback(self, msg):
+        if msg.States[0]:  # Start
+            self.state.behavior_state = BehaviorState.START
+            self.state.start_event = True
+            self.state.trot_event = False
+            self.state.rest_event = False
+
+        elif msg.States[1]:  # Trot
+            self.state.behavior_state = BehaviorState.TROT
+            self.state.start_event = False
+            self.state.trot_event = True
+            self.state.rest_event = False
+
+        elif msg.States[3]:  # Rest
+            self.state.behavior_state = BehaviorState.REST
+            self.state.start_event = False
+            self.state.trot_event = False
+            self.state.rest_event = True
+            
+       # 상태값 출력, imu나 회전 쪽도 출력할 수도 있음
+        self.get_logger().info(f'Current State: {self.state.behavior_state.name}')
 
 
+def main(args=None):
+    rclpy.init(args=args)
+    node = StateSubscriber()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
-    def _joy_cmd_callback(self, msg):
-        # command클래스의 값을 업데이트 해주는 방식
-        self.command.update_state(msg.states)
 
-        self.get_logger().info(f"Updated CurrentState: {self.command.get_state()}")
+if __name__ == '__main__':
+    main()
 
 
 # def main(args=None):
