@@ -20,6 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'CmdManagerNode = kaqu_controller.KaquCmdManager.CmdManagerNode:main',
+            'CmdManager_Node = kaqu_controller.KaquCmdManager.cmdtest:main', #test용
+            'JoyPublisherNode = kaqu_controller.KaquCmdManager.test:main', #test용
         ],
     },
 )
