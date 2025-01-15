@@ -23,6 +23,6 @@ setup(
             'CmdManagerNode = kaqu_controller.KaquCmdManager.CmdManagerNode:main',
             'CmdManager_Node = kaqu_controller.KaquCmdManager.cmdtest:main', #test용
             'JoyPublisherNode = kaqu_controller.KaquCmdManager.test:main', #test용
-        ],
+            'RobotController = kaqu_controller.Kaquctrl.RobotController:main',]
     },
 )
