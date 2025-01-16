@@ -22,7 +22,8 @@ setup(
         'console_scripts': [
             'CmdManagerNode = kaqu_controller.KaquCmdManager.CmdManagerNode:main',
             'CmdManager_Node = kaqu_controller.KaquCmdManager.cmdtest:main', #test용
-            'JoyPublisherNode = kaqu_controller.KaquCmdManager.test:main', #test용
-            'RobotController = kaqu_controller.Kaquctrl.RobotController:main',]
+            'JoyPublisherTest = kaqu_controller.Kaquctrl.JoyPublisherTest:main', #test용
+            'RobotController = kaqu_controller.Kaquctrl.RobotController:main',
+            'RobotController2 = kaqu_controller.Kaquctrl.RobotController2:main']
     },
 )

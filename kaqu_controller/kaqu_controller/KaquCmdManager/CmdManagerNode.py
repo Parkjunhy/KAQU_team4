@@ -83,6 +83,11 @@ class StateSubscriber(Node):
        # 상태값 출력, imu나 회전 쪽도 출력할 수도 있음
         self.get_logger().info(f'Current State: {self.state.behavior_state.name}')
 
+        # 각 상태 플래그 출력
+        self.get_logger().info(f"Start Event: {self.state.start_event}")
+        self.get_logger().info(f"Trot Event: {self.state.trot_event}")
+        self.get_logger().info(f"Side Event: {self.state.side_event}")
+
 
 def main(args=None):
     rclpy.init(args=args)

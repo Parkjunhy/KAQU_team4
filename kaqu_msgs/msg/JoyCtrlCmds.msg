@@ -1,4 +1,4 @@
-# std_msgs/Header header
+std_msgs/Header header
 
 
 # states represent the robot's states
