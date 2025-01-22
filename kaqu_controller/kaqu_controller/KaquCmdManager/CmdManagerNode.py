@@ -47,6 +47,7 @@ class StateSubscriber(Node):
     def __init__(self):
         super().__init__('state_subscriber')
         self.state = RobotState(default_height=0.1)
+        self.command = RobotCommand(default_height=0.1)
         self.subscription = self.create_subscription(
             JoyCtrlCmds,
             'kaqu_joy_ctrl_cmd',
@@ -54,35 +55,73 @@ class StateSubscriber(Node):
             10
         )
 
+        # 새로운 퍼블리셔 추가
+        self.state_pub = self.create_publisher(JoyCtrlCmds, 'robot_state', 10)
+
     def joystick_callback(self, msg):
+        """JoyCtrlCmds 메시지를 수신하고, 상태에 맞는 보행 선택"""
+        self.get_logger().info(f"Received JoyCtrlCmds: {msg}")
 
-        # Log the raw message received
-        self.get_logger().info(f"Received message: {msg}")
+        # 현재 상태 값을 출력하여 디버깅
+        self.get_logger().info(f"Current States in msg: {msg.states}")
 
-        # Log states for debugging
-        self.get_logger().info(f"States: {msg.states}, Gait Type: {msg.gait_type}, Pose: {msg.pose}")
+        # states에 따라 gait 선택
+        if msg.states[0]:  # START 상태
+            if self.state.behavior_state != BehaviorState.START:
+                self.state.behavior_state = BehaviorState.START
+                self.state.start_event = True
+                self.state.trot_event = False
+                self.state.side_event = False
+                self.get_logger().info(f"State changed to: {self.state.behavior_state.name}")
+                self.select_gait()  # 상태가 변경될 때마다 gait 선택 호출
+        elif msg.states[1]:  # TROT 상태
+            if self.state.behavior_state != BehaviorState.TROT:
+                self.state.behavior_state = BehaviorState.TROT
+                self.state.start_event = False
+                self.state.trot_event = True
+                self.state.side_event = False
+                self.get_logger().info(f"State changed to: {self.state.behavior_state.name}")
+                self.select_gait()  # 상태가 변경될 때마다 gait 선택 호출
+        elif msg.states[2]:  # SIDEMOVE 상태
+            if self.state.behavior_state != BehaviorState.SIDEMOVE:
+                self.state.behavior_state = BehaviorState.SIDEMOVE
+                self.state.start_event = False
+                self.state.trot_event = False
+                self.state.side_event = True
+                self.get_logger().info(f"State changed to: {self.state.behavior_state.name}")
+                self.select_gait()  # 상태가 변경될 때마다 gait 선택 호출
 
-        if msg.states[0]:  # Start
-            self.state.behavior_state = BehaviorState.START
-            self.state.start_event = True
-            self.state.trot_event = False
-            self.state.side_event = False
-
-        elif msg.states[1]:  # Trot
-            self.state.behavior_state = BehaviorState.TROT
-            self.state.start_event = False
-            self.state.trot_event = True
-            self.state.side_event = False
-
-        elif msg.states[2]:  # Rest (sidemove)
-            self.state.behavior_state = BehaviorState.SIDEMOVE
-            self.state.start_event = False
-            self.state.trot_event = False
-            self.state.side_event = True
-            
-       # 상태값 출력, imu나 회전 쪽도 출력할 수도 있음
+        # 상태 값 출력
         self.get_logger().info(f'Current State: {self.state.behavior_state.name}')
 
+        # 상태 메시지 퍼블리시 (RobotState와 Command)
+        self.publish_state()
+
+    def select_gait(self):
+        """상태에 따라 로봇의 보행 모드 선택"""
+        if self.state.behavior_state == BehaviorState.START:
+            # START 상태에 맞는 gait 실행 (예: 초기화 동작)
+            self.get_logger().info("Gait selected: START")
+            # 로봇 컨트롤러에 START 명령을 전달하는 로직 필요
+        elif self.state.behavior_state == BehaviorState.TROT:
+            # TROT 상태에 맞는 gait 실행
+            self.get_logger().info("Gait selected: TROT")
+            # 로봇 컨트롤러에 TROT 명령을 전달하는 로직 필요
+        elif self.state.behavior_state == BehaviorState.SIDEMOVE:
+            # SIDEMOVE 상태에 맞는 gait 실행
+            self.get_logger().info("Gait selected: SIDEMOVE")
+            # 로봇 컨트롤러에 SIDEMOVE 명령을 전달하는 로직 필요
+
+    def publish_state(self):
+        """로봇 상태를 퍼블리시"""
+        msg = JoyCtrlCmds()
+        # 상태에 대한 정보를 메시지에 추가
+        msg.states = [self.state.start_event, self.state.trot_event, self.state.side_event]
+        # 기타 정보도 필요하면 추가 가능
+
+        # 메시지 발행
+        self.state_pub.publish(msg)
+        self.get_logger().info(f"Published current state: {msg.states}")
 
 def main(args=None):
     rclpy.init(args=args)
